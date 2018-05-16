@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>breakpoint upload</title>
+    <script src="jquery1.8.3.min.js"></script>
+</head>
+<body>
+    <div>
+        <input type="file" name="breakpoint" id="breakpoint" multiple="multiple"><br/>
+    </div>
+    <div>
+        <table id="upload-list" style="display: none">
+            <thead>
+            <tr>
+                <th width="35%">文件名</th>
+                <th width="15%">文件类型</th>
+                <th width="15%">文件大小</th>
+                <th width="20%">上传进度</th>
+                <th width="15%">
+                    <input type="button" value="全部上传" name="upload" class="uploadAll" onclick="start_or_stop($(this));">
+                </th>
+            </tr>
+            </thead>
+            <tbody style="text-align: center;">
+            </tbody>
+        </table>
+    </div>
+    <div>
+
+    </div>
+
+    <script type="text/template" id="file-upload-tpl">
+        <tr>
+            <td width="35%">{{fileName}}</td>
+            <td width="15%">{{fileType}}</td>
+            <td width="15%">{{fileSize}}</td>
+            <td width="20%">
+                <progress value="0" max="10" class="prouploadfile"></progress>
+                <span class="persent" style="position:relative;top:-5px;">0%</span>
+            </td>
+            <td width="15%">
+                <input type="button" value="开始上传" onclick="start_or_stop($(this));"  data-size="{{fileb}}" data-num="{{index}}">
+            </td>
+        </tr>
+    </script>
+
+    <script>
+
+        $('#breakpoint').change(function () {
+            var fileList = $(this).prop('files'),
+                str      = '',
+                filesize;   //获取文件列表
+//            console.log(fileList);
+            $.each(fileList,function (k,v) {
+                filesize = v.size > 1024
+                        ? v.size / 1024 > 1024
+                        ? v.size / (1024 * 1024) > 1024
+                        ? (v.size / (1024 * 1024 * 1024)).toFixed(2) + 'GB'
+                        : (v.size / (1024 * 1024)).toFixed(2) + 'MB'
+                        : (v.size / 1024).toFixed(2) + 'KB'
+                        : (v.size).toFixed(2) + 'B';
+                str += $('#file-upload-tpl').html().replace('{{fileName}}',v.name).replace('{{fileType}}',v.type).replace('{{fileSize}}',filesize).replace('{{fileb}}',v.size).replace('{{index}}',k);
+            });
+            $('#upload-list').find('tbody').html(str).parent().show();
+        });
+
+       function start_or_stop(_this)
+       {
+           if ( _this.hasClass('waitStop') )
+           {
+               if ( _this.hasClass('uploadAll') )
+               {
+                   _this.val('全部上传').removeClass('waitStop');
+                   _this.parents('thead').next().find('tr input').map(function () {
+                       $(this).val('开始上传').removeClass('waitStop');
+                   });
+               }else{
+                   _this.val('开始上传').removeClass('waitStop');
+                   var vals = _this.parents('tbody').find('tr input').map(function () { return $(this).val(); }).get();
+//                   console.log(vals);
+                   if( $.inArray('暂停',vals) == -1 )
+                   {
+                       _this.parents('tbody').prev('thead').find('tr input').val('全部上传').removeClass('waitStop');
+                   }
+               }
+               //暂停上传
+           }else{
+               if ( _this.hasClass('uploadAll') )
+               {
+                   _this.val('全部暂停').addClass('waitStop');
+                   _this.parents('thead').next().find('tr input').map(function () {
+                       $(this).val('暂停').addClass('waitStop');
+                   });
+               }else{
+                   _this.val('暂停').addClass('waitStop');
+
+                   var vals = _this.parents('tbody').find('tr input').map(function () { return $(this).val(); }).get();
+//                   console.log(vals);
+                   if( $.inArray('开始上传',vals) == -1 )
+                   {
+                       _this.parents('tbody').prev('thead').find('tr input').val('全部暂停').addClass('waitStop');
+                   }
+               }
+               upload(_this);
+           }
+       }
+
+       function upload(_this) {
+           var fileLists = $('#breakpoint').prop('files'),
+                   fileList;
+           if ( fileLists.length == 0 )
+           {
+               alert('无法获取文件!!!');
+               return false;
+           }
+           if ( _this.hasClass('uploadAll') )
+           {
+                fileList = fileLists;   //获取文件列表
+           }else{
+                index = _this.attr('data-num'),
+               fileList[0] = fileLists[index];
+           }
+
+           $.each(fileList,function (index,val) {
+               up(index,val);
+           });
+
+
+       }
+
+       function up(index,val) {
+           var fileSize = val.size,                         //获取文件字节数
+               eachSize = 500*1024,                         //设置每个文件片段大小为500kb
+               fileNum  = Math.ceil(fileSize/eachSize),     //计算文件切片个数
+               fileName = val.name,                         //获取文件名
+               lastOne  = 0,                                //值为1时代表当前文件已经完成
+               blob     = getCookie(fileName),
+               formDate = new FormData();
+
+           blob = (blob != null && blob != "") ? parseInt(blob) : 0;
+           if ( (blob+1) >= fileNum )
+           {
+//               alert('已经完成');
+//               return false;
+           }
+           else if( (blob+2) == fileNum )
+           {
+               lastOne = 1;
+           }
+           for ( var i = blob; i< fileNum; i++ )
+           {
+               if ( lastOne )
+               {
+                   blobfile = val.slice(i*eachSize, fileSize);
+               }else {
+                   blobfile = val.slice(i*eachSize, (i+1)*eachSize);
+               }
+               formDate.append('fileName',fileName);
+               formDate.append('file',blobfile);
+               formDate.append('blob',i);
+               formDate.append('lastOne',lastOne);
+               $.post('./breakpointUpload.php',formDate,function (res) {
+                   console.log(res);
+               });
+           }
+
+       }
+
+        //设置cookie
+        function setCookie(c_name, value, expiredays)
+        {
+            var exdate = new Date();
+            exdate.setDate(exdate.getDate()+expiredays);
+            document.cookie = c_name+ "=" +escape(value)+
+                    ((expiredays==null) ? "" : ";expires="+exdate.toGMTString()+";path=/")
+        }
+        //获取cookie
+        function getCookie(c_name)
+        {
+            if (document.cookie.length>0)
+            {
+                c_start = document.cookie.indexOf(c_name + "=")
+                if (c_start != -1)
+                {
+                    c_start = c_start + c_name.length+1
+                    c_end = document.cookie.indexOf(";",c_start)
+                    if (c_end == -1) c_end = document.cookie.length
+                    return unescape(document.cookie.substring(c_start,c_end))
+                }
+            }
+            return "";
+        }
+
+        function clearCookie(c_name){
+            setCookie(c_name,' ',-1);
+        }
+
+    </script>
+</body>
+</html>
