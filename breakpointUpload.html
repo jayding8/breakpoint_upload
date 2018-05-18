@@ -108,7 +108,7 @@
 
        function upload(_this) {
            var fileLists = $('#breakpoint').prop('files'),
-                   fileList;
+                   fileList = [];
            if ( fileLists.length == 0 )
            {
                alert('无法获取文件!!!');
@@ -118,52 +118,59 @@
            {
                 fileList = fileLists;   //获取文件列表
            }else{
-                index = _this.attr('data-num'),
-               fileList[0] = fileLists[index];
+                index = _this.attr('data-num');
+               fileList.push(fileLists[index]);
            }
 
            $.each(fileList,function (index,val) {
-               up(index,val);
+               console.log('val',val)
+//               up(index,val);
+               var fileSize = val.size,                         //获取文件字节数
+                   eachSize = 5*1024,                         //设置每个文件片段大小为500kb
+                   fileNum  = Math.ceil(fileSize/eachSize),     //计算文件切片个数
+                   fileName = val.name,                         //获取文件名
+                   blob     = getCookie(fileName),
+                   formData = new FormData();
+
+               blob = (blob != null && blob != "") ? parseInt(blob) : 0;
+               for ( var i = blob; i< fileNum; i++ )
+               {
+                   if ( (i+1) == fileNum )
+                   {
+                       blobfile = val.slice(i*eachSize, fileSize);
+                       formData.append('lastOne',fileNum);
+                   }else {
+                       blobfile = val.slice(i*eachSize, (i+1)*eachSize);
+                   }
+                   formData.append('fileName',fileName);
+                   formData.append('file',blobfile);
+                   formData.append('blob',i);
+
+//                   console.log('fileName',fileName)
+//                   console.log('file',blobfile)
+//                   console.log('blob',i)
+//                   console.log('lastOne',lastOne)
+                   $.ajax({
+                       url: './breakpointUpload.php',
+                       type: 'POST',
+                       cache: false,
+                       data: formData,
+                       processData: false,
+                       contentType: false,
+                       success:function (re) {
+                           console.log(re)
+                           if ( (i+1) == fileNum )
+                           {
+                               clearCookie(fileName);
+                           }else {
+                               setCookie(fileName,i);
+                           }
+                       }
+                   })
+
+               }
            });
 
-
-       }
-
-       function up(index,val) {
-           var fileSize = val.size,                         //获取文件字节数
-               eachSize = 500*1024,                         //设置每个文件片段大小为500kb
-               fileNum  = Math.ceil(fileSize/eachSize),     //计算文件切片个数
-               fileName = val.name,                         //获取文件名
-               lastOne  = 0,                                //值为1时代表当前文件已经完成
-               blob     = getCookie(fileName),
-               formDate = new FormData();
-
-           blob = (blob != null && blob != "") ? parseInt(blob) : 0;
-           if ( (blob+1) >= fileNum )
-           {
-//               alert('已经完成');
-//               return false;
-           }
-           else if( (blob+2) == fileNum )
-           {
-               lastOne = 1;
-           }
-           for ( var i = blob; i< fileNum; i++ )
-           {
-               if ( lastOne )
-               {
-                   blobfile = val.slice(i*eachSize, fileSize);
-               }else {
-                   blobfile = val.slice(i*eachSize, (i+1)*eachSize);
-               }
-               formDate.append('fileName',fileName);
-               formDate.append('file',blobfile);
-               formDate.append('blob',i);
-               formDate.append('lastOne',lastOne);
-               $.post('./breakpointUpload.php',formDate,function (res) {
-                   console.log(res);
-               });
-           }
 
        }
 
