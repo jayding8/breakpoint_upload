@@ -35,8 +35,8 @@
             <td width="35%">{{fileName}}</td>
             <td width="15%">{{fileType}}</td>
             <td width="15%">{{fileSize}}</td>
-            <td width="20%">
-                <progress value="0" max="10" class="prouploadfile"></progress>
+            <td width="20%" class="jdt">
+                <progress value="0" max="100" class="prouploadfile"></progress>
                 <span class="persent" style="position:relative;top:-5px;">0%</span>
             </td>
             <td width="15%">
@@ -73,10 +73,10 @@
                {
                    _this.val('全部上传').removeClass('waitStop');
                    _this.parents('thead').next().find('tr input').map(function () {
-                       $(this).val('开始上传').removeClass('waitStop');
+                       $(this).val('开始上传').removeClass('waitStop').attr('data-status',0);
                    });
                }else{
-                   _this.val('开始上传').removeClass('waitStop');
+                   _this.val('开始上传').removeClass('waitStop').attr('data-status',0);
                    var vals = _this.parents('tbody').find('tr input').map(function () { return $(this).val(); }).get();
 //                   console.log(vals);
                    if( $.inArray('暂停',vals) == -1 )
@@ -90,10 +90,10 @@
                {
                    _this.val('全部暂停').addClass('waitStop');
                    _this.parents('thead').next().find('tr input').map(function () {
-                       $(this).val('暂停').addClass('waitStop');
+                       $(this).val('暂停').addClass('waitStop').attr('data-status',1);
                    });
                }else{
-                   _this.val('暂停').addClass('waitStop');
+                   _this.val('暂停').addClass('waitStop').attr('data-status',1);
 
                    var vals = _this.parents('tbody').find('tr input').map(function () { return $(this).val(); }).get();
 //                   console.log(vals);
@@ -123,56 +123,84 @@
            }
 
            $.each(fileList,function (index,val) {
-               console.log('val',val)
-//               up(index,val);
-               var fileSize = val.size,                         //获取文件字节数
-                   eachSize = 5*1024,                         //设置每个文件片段大小为500kb
-                   fileNum  = Math.ceil(fileSize/eachSize),     //计算文件切片个数
-                   fileName = val.name,                         //获取文件名
-                   blob     = getCookie(fileName),
-                   formData = new FormData();
-
-               blob = (blob != null && blob != "") ? parseInt(blob) : 0;
-               for ( var i = blob; i< fileNum; i++ )
-               {
-                   if ( (i+1) == fileNum )
-                   {
-                       blobfile = val.slice(i*eachSize, fileSize);
-                       formData.append('lastOne',fileNum);
-                   }else {
-                       blobfile = val.slice(i*eachSize, (i+1)*eachSize);
-                   }
-                   formData.append('fileName',fileName);
-                   formData.append('file',blobfile);
-                   formData.append('blob',i);
-
-//                   console.log('fileName',fileName)
-//                   console.log('file',blobfile)
-//                   console.log('blob',i)
-//                   console.log('lastOne',lastOne)
-                   $.ajax({
-                       url: './breakpointUpload.php',
-                       type: 'POST',
-                       cache: false,
-                       data: formData,
-                       processData: false,
-                       contentType: false,
-                       success:function (re) {
-                           console.log(re)
-                           if ( (i+1) == fileNum )
-                           {
-                               clearCookie(fileName);
-                           }else {
-                               setCookie(fileName,i);
-                           }
-                       }
-                   })
-
-               }
+               var blob = getCookie(val.name);
+               ajaxup(_this,val,blob,index);
            });
-
-
        }
+        
+        function ajaxup(_this,val,blob,index){
+            var fileSize = val.size,                         //获取文件字节数
+                eachSize = 50*1024,                         //设置每个文件片段大小为500kb
+                fileNum  = Math.ceil(fileSize/eachSize),     //计算文件切片个数
+                fileName = val.name,                         //获取文件名
+                formData = new FormData();
+            blob = (blob != null && blob != "") ? parseInt(blob) : 0;
+            if ( (blob+1) == fileNum )
+            {
+                blobfile = val.slice(blob*eachSize, fileSize);
+                formData.append('lastOne',fileNum);
+            }else {
+                blobfile = val.slice(blob*eachSize, (blob+1)*eachSize);
+            }
+            formData.append('fileName',fileName);
+            formData.append('file',blobfile);
+            formData.append('blob',blob);
+
+            $.ajax({
+                url: './breakpointUpload.php',
+                type: 'POST',
+                cache: false,
+                data: formData,
+//                async:false,
+                processData: false,
+                contentType: false,
+                dataType:'json',
+                success:function (re) {
+                    if ( re.status )
+                    {
+                        clearCookie(fileName);
+                        if ( _this.hasClass('uploadAll') )
+                        {
+                            $('tbody').children('tr').eq(index).find('progress').val(100);
+                            $('tbody').children('tr').eq(index).find('span').html('100%');
+                        }else{
+                            console.log(jdt,'jdt')
+                            _this.parent().siblings('.jdt').find('progress').val(100);
+                            _this.parent().siblings('.jdt').find('span').html('100%');
+                        }
+                    }else {
+                        if ( re.msg )
+                        {
+                            alert(re.msg);
+                        }else {
+                            setCookie(fileName,blob,1);
+                            var jdt = Math.ceil( ((blob+1)/fileNum) *100);
+                            if ( _this.hasClass('uploadAll') )
+                            {
+                                $('tbody').children('tr').eq(index).find('progress').val(jdt);
+                                $('tbody').children('tr').eq(index).find('span').html(jdt+'%');
+//                                $('tbody').index(index).find('span').html(jdt+'%');
+//                                _this.parent().siblings('.jdt').find('span').html(jdt+'%');
+//                                console.log(333,$('tbody').children('tr').eq(index).find('input'));
+//                                console.log(444,$('tbody').children('tr').eq(index).find('input').attr('data-status'))
+                                if( +$('tbody').children('tr').eq(index).find('input').attr('data-status') )
+                                {
+                                    ajaxup(_this,val,blob+1,index);
+                                }
+                            }else{
+                                console.log(jdt,'jdt')
+                                _this.parent().siblings('.jdt').find('progress').val(jdt);
+                                _this.parent().siblings('.jdt').find('span').html(jdt+'%');
+                                if( +_this.attr('data-status') )
+                                {
+                                    ajaxup(_this, val, blob + 1);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
         //设置cookie
         function setCookie(c_name, value, expiredays)
