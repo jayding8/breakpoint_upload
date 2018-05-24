@@ -164,7 +164,6 @@
                             $('tbody').children('tr').eq(index).find('progress').val(100);
                             $('tbody').children('tr').eq(index).find('span').html('100%');
                         }else{
-                            console.log(jdt,'jdt')
                             _this.parent().siblings('.jdt').find('progress').val(100);
                             _this.parent().siblings('.jdt').find('span').html('100%');
                         }
@@ -179,8 +178,6 @@
                             {
                                 $('tbody').children('tr').eq(index).find('progress').val(jdt);
                                 $('tbody').children('tr').eq(index).find('span').html(jdt+'%');
-//                                $('tbody').index(index).find('span').html(jdt+'%');
-//                                _this.parent().siblings('.jdt').find('span').html(jdt+'%');
 //                                console.log(333,$('tbody').children('tr').eq(index).find('input'));
 //                                console.log(444,$('tbody').children('tr').eq(index).find('input').attr('data-status'))
                                 if( +$('tbody').children('tr').eq(index).find('input').attr('data-status') )
@@ -188,7 +185,7 @@
                                     ajaxup(_this,val,blob+1,index);
                                 }
                             }else{
-                                console.log(jdt,'jdt')
+//                                console.log(jdt,'jdt')
                                 _this.parent().siblings('.jdt').find('progress').val(jdt);
                                 _this.parent().siblings('.jdt').find('span').html(jdt+'%');
                                 if( +_this.attr('data-status') )
